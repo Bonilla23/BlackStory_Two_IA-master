@@ -47,7 +47,12 @@ class Narrator:
         prompt = self._get_narrator_prompt(question, qa_history)
         while True:
             try:
-                response = self.api_client.generate_text(self.narrator_model, prompt).strip().lower().rstrip('.,!?;')
+                response = self.api_client.generate_text(self.narrator_model, prompt).strip().lower()
+                # Clean the response to remove any leading "narrador:" and punctuation
+                if response.startswith("narrador:"):
+                    response = response[len("narrador:"):].strip()
+                response = response.rstrip('.,!?;')
+
                 if response in ["sí", "si", "no", "no es relevante"]:
                     return response
                 else:

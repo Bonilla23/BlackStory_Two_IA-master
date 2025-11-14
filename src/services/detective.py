@@ -44,18 +44,26 @@ class Detective:
 
         {history_str}
 
-        Tu siguiente acción (pregunta o indicación de que estás listo para resolver):
+        Tu siguiente acción (pregunta o indicación de que estás listo para resolver).
+        Asegúrate de que tu respuesta sea una pregunta directa o una de las frases para resolver.
+        NO incluyas "Detective:" al inicio de tu pregunta.
         """
 
     def ask_question_or_solve(self, qa_history: List[Tuple[str, str]]) -> str:
         """
         Gets a question or a solution attempt from the Detective AI.
+        The response will be cleaned to remove any leading "Detective: " if present.
+        Gets a question or a solution attempt from the Detective AI.
+        The response will be cleaned to remove any leading "Detective: " if present.
         Handles connection errors with retry mechanism.
         """
         prompt = self._get_detective_prompt(qa_history)
         while True:
             try:
                 response = self.api_client.generate_text(self.detective_model, prompt).strip()
+                # Clean the response to remove any leading "Detective: "
+                if response.lower().startswith("detective:"):
+                    response = response[len("detective:"):].strip()
                 return response
             except ConnectionError as e:
                 if not display_error_and_retry(f"Error de conexión con el Detective: {e}"):
