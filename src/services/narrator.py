@@ -103,10 +103,20 @@ class Narrator:
         while True:
             try:
                 response_text = self.api_client.generate_text(self.narrator_model, prompt)
+                
+                # Clean the response to remove markdown code blocks if present
+                if response_text.strip().startswith("```json"):
+                    response_text = response_text.strip()[len("```json"):].strip()
+                    if response_text.endswith("```"):
+                        response_text = response_text[:-len("```")].strip()
+
                 validation_data = json.loads(response_text)
                 verdict = validation_data.get("veredicto", "Incorrecto")
                 analysis = validation_data.get("analisis", "No se pudo generar un análisis detallado.")
                 return verdict, analysis
-            except (ConnectionError, ValueError, KeyError, json.JSONDecodeError) as e:
+            except json.JSONDecodeError as e:
+                print(f"DEBUG: Narrator gave an invalid JSON response during validation. Raw response: '{response_text}'. Retrying...")
+                prompt += "\n\nADVERTENCIA: Debes responder ESTRICTAMENTE en formato JSON como se especificó, SIN bloques de código markdown (```json ... ```)."
+            except (ConnectionError, ValueError, KeyError) as e:
                 if not display_error_and_retry(f"Error al validar la solución con el Narrador: {e}"):
                     raise

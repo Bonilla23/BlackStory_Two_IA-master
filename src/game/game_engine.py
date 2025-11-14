@@ -80,30 +80,42 @@ class GameEngine:
         }
         max_questions = question_limits.get(self.game_state.difficulty, 10) # Default to 10 if difficulty not found
 
-        while not self.game_state.detective_solved and len(self.game_state.qa_history) < max_questions:
-            detective_response = detective_ai.ask_question_or_solve(self.game_state.qa_history)
+        while not self.game_state.detective_solved:
+            current_questions = len(self.game_state.qa_history)
 
-            if detective_ai.is_ready_to_solve(detective_response) and not detective_ready_to_solve:
-                detective_ready_to_solve = True
-                print("\nDetective: ¡Estoy listo para resolver!")
+            if current_questions >= max_questions and not detective_ready_to_solve:
+                print(f"\n¡Se ha alcanzado el límite de {max_questions} preguntas!")
+                print("El Detective tiene UNA ÚLTIMA OPORTUNIDAD para dar su solución final.")
                 print("Presiona ENTER para que el Detective dé su solución final...")
                 input()
-                continue # Skip to the next iteration to get the actual solution
-
+                detective_ready_to_solve = True
+                # Continue to the next iteration to allow the detective to provide the solution
+                # The next block will handle the solution attempt
+            
             if detective_ready_to_solve:
                 self.game_state.detective_solution_attempt = detective_ai.provide_final_solution(self.game_state.qa_history)
                 self.game_state.detective_solved = True
                 break # Exit loop after solution attempt
+            
+            # Only ask a question if not already in "ready to solve" state due to question limit
+            if not detective_ready_to_solve:
+                detective_response = detective_ai.ask_question_or_solve(self.game_state.qa_history)
 
-            narrator_answer = narrator_ai.answer_question(detective_response, self.game_state.qa_history)
-            self.game_state.qa_history.append((detective_response, narrator_answer))
-            display_qa_pair(detective_response, narrator_answer)
+                if detective_ai.is_ready_to_solve(detective_response): # No need for 'and not detective_ready_to_solve' here
+                    detective_ready_to_solve = True
+                    print("\nDetective: ¡Estoy listo para resolver!")
+                    print("Presiona ENTER para que el Detective dé su solución final...")
+                    input()
+                    continue # Skip to the next iteration to get the actual solution
+
+                narrator_answer = narrator_ai.answer_question(detective_response, self.game_state.qa_history)
+                self.game_state.qa_history.append((detective_response, narrator_answer))
+                display_qa_pair(detective_response, narrator_answer)
         
-        # If the loop ended because max questions were reached and detective hasn't solved
-        if not self.game_state.detective_solved and len(self.game_state.qa_history) >= max_questions:
-            print(f"\n¡Se ha alcanzado el límite de {max_questions} preguntas!")
-            print("El Detective no ha logrado resolver el misterio a tiempo.")
-            self.game_state.detective_solved = True # Mark as solved to exit game, but without a solution attempt
+        # If the game ended without a solution attempt (e.g., user quit or critical error)
+        # This block is mostly for robustness, as the loop should now handle solution attempts
+        if not self.game_state.detective_solved and not self.game_state.detective_solution_attempt:
+            self.game_state.detective_solved = True # Ensure game ends
 
     def _finalize_game(self) -> None:
         """
