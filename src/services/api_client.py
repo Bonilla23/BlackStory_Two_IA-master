@@ -68,17 +68,17 @@ class APIClient:
         """
         Calls the Ollama API to generate content.
         """
-        ollama_url = self.config.get("ollama_api_url")
-        if not ollama_url:
-            raise ValueError("OLLAMA_API_URL no configurada para Ollama.")
+        ollama_host = self.config.get("ollama_host")
+        if not ollama_host:
+            raise ValueError("OLLAMA_HOST no configurada para Ollama.")
 
-        # Parse host and port from ollama_url
-        # Assuming ollama_url is like http://localhost:11434
-        if "://" in ollama_url:
-            protocol, rest = ollama_url.split("://", 1)
+        # Parse host and port from ollama_host
+        # Assuming ollama_host is like http://localhost:11434
+        if "://" in ollama_host:
+            protocol, rest = ollama_host.split("://", 1)
             host_port = rest.split("/", 1)[0]
         else:
-            host_port = ollama_url.split("/", 1)[0]
+            host_port = ollama_host.split("/", 1)[0]
             protocol = "http" # Default to http if no protocol specified
 
         host, port_str = (host_port.split(":") + ["80"])[:2] # Default port 80 if not specified

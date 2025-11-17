@@ -17,7 +17,7 @@ class Config:
             "dificil": 5,
         }
         self.gemini_api_key: str | None = None
-        self.ollama_api_url: str = "http://localhost:11434"
+        self.ollama_host: str = "http://localhost:11434" # Changed to ollama_host
         self._load_env_vars()
         self._parse_cli_args()
 
@@ -32,7 +32,7 @@ class Config:
             print("Warning: python-dotenv not installed. Environment variables must be set manually.")
 
         self.gemini_api_key = os.getenv("GEMINI_API_KEY")
-        self.ollama_api_url = os.getenv("OLLAMA_API_URL", self.ollama_api_url)
+        self.ollama_host = os.getenv("OLLAMA_HOST", self.ollama_host) # Changed to OLLAMA_HOST
 
     def _parse_cli_args(self) -> None:
         """
@@ -89,5 +89,5 @@ class Config:
             "difficulty": self.difficulty,
             "question_limits": self.question_limits,
             "gemini_api_key": self.gemini_api_key,
-            "ollama_api_url": self.ollama_api_url,
+            "ollama_host": self.ollama_host,
         }
