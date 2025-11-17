@@ -16,6 +16,7 @@ class GameEngine:
         self.config = config
         self.api_client = APIClient(config)
         self.game_state: GameState | None = None
+        self.narrator_ai: Narrator | None = None # Add narrator_ai as a member variable
 
     def _initialize_game(self) -> None:
         """
@@ -61,7 +62,7 @@ class GameEngine:
         if not self.game_state:
             raise RuntimeError("Game not initialized.")
 
-        narrator_ai = Narrator(
+        self.narrator_ai = Narrator( # Assign to self.narrator_ai
             self.api_client,
             self.game_state.narrator_model,
             Story(self.game_state.mystery_situation, self.game_state.hidden_solution),
@@ -103,7 +104,7 @@ class GameEngine:
                     input()
                     continue # Skip to the next iteration to get the actual solution
 
-                narrator_answer = narrator_ai.answer_question(detective_response, self.game_state.qa_history)
+                narrator_answer = self.narrator_ai.answer_question(detective_response, self.game_state.qa_history)
                 self.game_state.qa_history.append((detective_response, narrator_answer))
                 display_qa_pair(detective_response, narrator_answer)
         
@@ -116,26 +117,21 @@ class GameEngine:
         """
         Finalizes the game by validating the detective's solution and displaying the results.
         """
-        if not self.game_state:
-            raise RuntimeError("Game not initialized.")
-
-        narrator_ai = Narrator(
-            self.api_client,
-            self.game_state.narrator_model,
-            Story(self.game_state.mystery_situation, self.game_state.hidden_solution),
-            self.game_state.difficulty,
-        )
+        if not self.game_state or not self.narrator_ai: # Check self.narrator_ai as well
+            raise RuntimeError("Game not initialized or narrator_ai not set.")
 
         result = "DERROTA"
         verdict = "Incorrecto"
         analysis = "El Detective no proporcionó una solución."
 
         if self.game_state.detective_solution_attempt:
-            verdict, analysis = narrator_ai.validate_solution(self.game_state.detective_solution_attempt)
+            verdict, analysis = self.narrator_ai.validate_solution(self.game_state.detective_solution_attempt) # Corrected to use self.narrator_ai
             if verdict.lower() == "correcto":
                 result = "VICTORIA"
             else:
                 result = "DERROTA"
+        
+        self.narrator_ai.save_full_conversation() # Save the full conversation here
 
         display_final_screen(
             result=result,

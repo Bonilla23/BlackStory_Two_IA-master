@@ -1,4 +1,6 @@
 import json
+import os
+from datetime import datetime
 from typing import List, Tuple
 from src.services.api_client import APIClient
 from src.models.story import Story
@@ -15,6 +17,8 @@ class Narrator:
         self.narrator_model = narrator_model
         self.story = story
         self.difficulty = difficulty
+        self.log_dir = "logs" # Directory to save conversation logs
+        self.conversation_history: List[str] = [] # Stores the full conversation history
 
     def _get_narrator_prompt(self, question: str, qa_history: List[Tuple[str, str]]) -> str:
         """
@@ -54,6 +58,7 @@ class Narrator:
                 response = response.rstrip('.,!?;')
 
                 if response in ["sí", "si", "no", "no es relevante"]:
+                    self.conversation_history.append(f"Detective: {question}\nNarrador: {response}")
                     return response
                 else:
                     # If the AI doesn't follow the rules, try again with a stricter prompt
@@ -113,6 +118,14 @@ class Narrator:
                 validation_data = json.loads(response_text)
                 verdict = validation_data.get("veredicto", "Incorrecto")
                 analysis = validation_data.get("analisis", "No se pudo generar un análisis detallado.")
+                
+                validation_log = (
+                    f"Detective's Solution: {detective_solution}\n"
+                    f"Narrator's Verdict: {verdict}\n"
+                    f"Narrator's Analysis: {analysis}"
+                )
+                self.conversation_history.append(validation_log)
+                
                 return verdict, analysis
             except json.JSONDecodeError as e:
                 print(f"DEBUG: Narrator gave an invalid JSON response during validation. Raw response: '{response_text}'. Retrying...")
@@ -120,3 +133,22 @@ class Narrator:
             except (ConnectionError, ValueError, KeyError) as e:
                 if not display_error_and_retry(f"Error al validar la solución con el Narrador: {e}"):
                     raise
+
+    def save_full_conversation(self) -> None:
+        """
+        Saves the entire accumulated conversation history to a single file.
+        """
+        if not self.conversation_history:
+            print("No hay conversación para guardar.")
+            return
+
+        os.makedirs(self.log_dir, exist_ok=True)
+        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        filename = os.path.join(self.log_dir, f"full_conversation_{timestamp}.txt")
+        try:
+            with open(filename, "w", encoding="utf-8") as f:
+                f.write("\n\n".join(self.conversation_history))
+            print(f"Conversación completa guardada en {filename}")
+            self.conversation_history = [] # Clear history after saving
+        except IOError as e:
+            print(f"Error al guardar la conversación completa en {filename}: {e}")

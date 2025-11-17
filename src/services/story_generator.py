@@ -47,22 +47,53 @@ class StoryGenerator:
             try:
                 response_text = self.api_client.generate_text(self.narrator_model, prompt)
                 
-                # Extract JSON from Markdown code block if present
-                if response_text.strip().startswith("```json"):
-                    json_start = response_text.find("```json") + len("```json")
-                    json_end = response_text.rfind("```")
-                    if json_start != -1 and json_end != -1 and json_end > json_start:
-                        json_string = response_text[json_start:json_end].strip()
-                    else:
-                        raise ValueError("Could not extract JSON from Markdown block.")
-                else:
-                    json_string = response_text.strip()
+                # Attempt to find and extract JSON from the response
+                json_string = self._extract_json_from_response(response_text)
 
                 story_data = json.loads(json_string)
                 return Story(
                     mystery_situation=story_data["situacion_misteriosa"],
                     hidden_solution=story_data["solucion_oculta"]
                 )
-            except (ConnectionError, ValueError, KeyError, json.JSONDecodeError) as e:
+            except json.JSONDecodeError as e:
+                print(f"DEBUG: Invalid JSON received from API: {json_string}. Error: {e}")
+                if not display_error_and_retry(f"Error de formato JSON al generar la historia: {e}. Reintentando..."):
+                    raise
+            except (ConnectionError, ValueError, KeyError) as e:
                 if not display_error_and_retry(f"Error al generar la historia: {e}"):
                     raise
+
+    def _extract_json_from_response(self, response_text: str) -> str:
+        """
+        Extracts a JSON string from the raw API response, handling markdown code blocks
+        and potential surrounding text.
+        """
+        # Try to find a markdown JSON block
+        json_start_marker = "```json"
+        json_end_marker = "```"
+        
+        if json_start_marker in response_text:
+            start_index = response_text.find(json_start_marker) + len(json_start_marker)
+            end_index = response_text.rfind(json_end_marker)
+            
+            if start_index != -1 and end_index != -1 and end_index > start_index:
+                return response_text[start_index:end_index].strip()
+        
+        # If no markdown block, assume the entire response is JSON or contains it
+        # Attempt to find the first '{' and last '}' to isolate the JSON object
+        first_brace = response_text.find('{')
+        last_brace = response_text.rfind('}')
+
+        if first_brace != -1 and last_brace != -1 and last_brace > first_brace:
+            json_string = response_text[first_brace : last_brace + 1].strip()
+        else:
+            # If all else fails, return the original text and let json.loads handle the error
+            json_string = response_text.strip()
+        
+        # Sanitize the JSON string to escape invalid control characters
+        # This is a common issue with LLM outputs that might include unescaped newlines/tabs within string values
+        json_string = json_string.replace('\\n', '\\\\n').replace('\\t', '\\\\t').replace('\\r', '\\\\r')
+        # Also, sometimes the LLM might output actual newline characters that need to be escaped
+        json_string = json_string.replace('\n', '\\n').replace('\t', '\\t').replace('\r', '\\r')
+
+        return json_string
