@@ -16,18 +16,30 @@ const startGameButton = document.getElementById('start-game-button');
 const startFightButton = document.getElementById('start-fight-button');
 
 function toggleFightModeSection() {
+    const detectiveModelLabel = document.querySelector('label[for="detective-model"]');
+    const detectiveModelInput = document.getElementById('detective-model');
+
     if (fightModeYes.checked) {
         fightModeSection.style.display = 'block';
         startGameButton.style.display = 'none'; // Hide Start Game button when fight mode is active
         startFightButton.style.display = 'block'; // Show Start Fight button
         document.getElementById('game-output').style.display = 'none';
         document.getElementById('fight-output').style.display = 'block';
+
+        // Hide detective model from main game form
+        if (detectiveModelLabel) detectiveModelLabel.style.display = 'none';
+        if (detectiveModelInput) detectiveModelInput.style.display = 'none';
+
     } else {
         fightModeSection.style.display = 'none';
         startGameButton.style.display = 'block'; // Show Start Game button when fight mode is inactive
         startFightButton.style.display = 'none'; // Hide Start Fight button
         document.getElementById('game-output').style.display = 'block';
         document.getElementById('fight-output').style.display = 'none';
+
+        // Show detective model from main game form
+        if (detectiveModelLabel) detectiveModelLabel.style.display = 'block';
+        if (detectiveModelInput) detectiveModelInput.style.display = 'block';
     }
 }
 
@@ -118,15 +130,13 @@ async function startFightMode(form) {
     const dataGame = Object.fromEntries(formDataGame.entries());
 
     const data = {
-        ...dataFight,
-        narrator_model: dataGame.narrator_model || 'gpt-4' // Use game form's narrator, default to gpt-4
+        ...dataFight, // Contains detective_model_1 and detective_model_2
+        narrator_model: dataGame.narrator_model || 'gpt-4', // Use game form's narrator, default to gpt-4
     };
 
-    const detective1Output = document.getElementById('detective1-output');
-    const detective2Output = document.getElementById('detective2-output');
+    const fightConversationOutput = document.getElementById('fight-conversation-output');
     const fightSummary = document.getElementById('fight-summary');
-    detective1Output.innerHTML = '<h4>Detective 1:</h4><div class="event">Starting fight...</div>';
-    detective2Output.innerHTML = '<h4>Detective 2:</h4>';
+    fightConversationOutput.innerHTML = '<div class="event">Starting fight mode...</div>';
     fightSummary.innerHTML = '';
 
     const response = await fetch('/start_fight', {
@@ -139,8 +149,7 @@ async function startFightMode(form) {
 
     const reader = response.body.getReader();
     const decoder = new TextDecoder();
-    detective1Output.innerHTML = '<h4>Detective 1:</h4>';
-    detective2Output.innerHTML = '<h4>Detective 2:</h4>';
+    fightConversationOutput.innerHTML = ''; // Clear initial message once stream starts
 
     await processStream(reader, decoder, null, submitButton, (line) => {
         if (line.trim() === '') return;
@@ -152,48 +161,44 @@ async function startFightMode(form) {
             if (msg.type === 'narrator') {
                 messageElement.classList.add('narrator');
                 messageElement.textContent = msg.content;
-                detective1Output.appendChild(messageElement.cloneNode(true));
-                detective2Output.appendChild(messageElement);
+                fightConversationOutput.appendChild(messageElement);
             } else if (msg.type === 'detective1_question') {
-                messageElement.classList.add('detective', 'detective1-output');
-                messageElement.textContent = `Q: ${msg.content}`;
-                detective1Output.appendChild(messageElement);
+                messageElement.classList.add('detective', 'detective1-question');
+                messageElement.textContent = msg.content; // Removed duplicate prefix
+                fightConversationOutput.appendChild(messageElement);
             } else if (msg.type === 'detective1_answer') {
-                messageElement.classList.add('detective', 'detective1-output');
-                messageElement.textContent = `A: ${msg.content}`;
-                detective1Output.appendChild(messageElement);
+                messageElement.classList.add('narrator', 'detective1-answer'); // Narrator answers detective 1
+                messageElement.textContent = msg.content; // Removed duplicate prefix
+                fightConversationOutput.appendChild(messageElement);
             } else if (msg.type === 'detective2_question') {
-                messageElement.classList.add('detective', 'detective2-output');
-                messageElement.textContent = `Q: ${msg.content}`;
-                detective2Output.appendChild(messageElement);
+                messageElement.classList.add('detective', 'detective2-question');
+                messageElement.textContent = msg.content; // Removed duplicate prefix
+                fightConversationOutput.appendChild(messageElement);
             } else if (msg.type === 'detective2_answer') {
-                messageElement.classList.add('detective', 'detective2-output');
-                messageElement.textContent = `A: ${msg.content}`;
-                detective2Output.appendChild(messageElement);
+                messageElement.classList.add('narrator', 'detective2-answer'); // Narrator answers detective 2
+                messageElement.textContent = msg.content; // Removed duplicate prefix
+                fightConversationOutput.appendChild(messageElement);
             } else if (msg.type === 'summary') {
                 const summaryItem = document.createElement('div');
                 summaryItem.classList.add('fight-summary-item');
-                summaryItem.innerHTML = msg.content;
+                summaryItem.innerHTML = msg.content; // Summary content is HTML
                 fightSummary.appendChild(summaryItem);
             } else if (msg.type === 'error') {
                 messageElement.classList.add('error');
                 messageElement.textContent = `Error: ${msg.content}`;
-                detective1Output.appendChild(messageElement.cloneNode(true));
-                detective2Output.appendChild(messageElement.cloneNode(true));
-                fightSummary.appendChild(messageElement);
+                fightConversationOutput.appendChild(messageElement);
+                fightSummary.appendChild(messageElement.cloneNode(true)); // Also show error in summary area
             } else {
                  messageElement.classList.add('event');
                  messageElement.textContent = msg.content;
-                 detective1Output.appendChild(messageElement.cloneNode(true));
-                 detective2Output.appendChild(messageElement.cloneNode(true));
+                 fightConversationOutput.appendChild(messageElement);
             }
         } catch (e) {
             console.error("Failed to parse JSON for line:", line, e);
             const errorElement = document.createElement('div');
             errorElement.classList.add('error');
             errorElement.textContent = `Error processing message: ${line}`;
-            detective1Output.appendChild(errorElement.cloneNode(true));
-            detective2Output.appendChild(errorElement.cloneNode(true));
+            fightConversationOutput.appendChild(errorElement);
         }
     });
 }

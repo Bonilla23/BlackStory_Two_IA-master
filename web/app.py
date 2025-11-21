@@ -1,12 +1,12 @@
 import sys
 import os
-import json
-from flask import Flask, render_template, request, Response
-from src.utils.config import Config
 
 # Add the project root to the Python path
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
+import json
+from flask import Flask, render_template, request, Response
+from src.utils.config import Config
 import asyncio
 from src.game.game_engine import GameEngine
 from src.game.fight_engine import FightEngine # Import FightEngine
@@ -52,20 +52,38 @@ async def start_fight():
     detective_model_1 = data.get('detective_model_1')
     detective_model_2 = data.get('detective_model_2')
 
-    async def generate_fight_stream():
+    def generate_fight_stream_sync():
         global fight_engine_instance
-        try:
+        
+        async def stream_content():
             config_loader = Config(parse_cli=False)
             config = config_loader.get_config()
             fight_engine_instance = FightEngine(config)
-            async for line in fight_engine_instance.run(narrator_model, detective_model_1, detective_model_2):
-                print(f"DEBUG: Yielding fight line: {line}") # Added for debugging
-                yield line + '\n'
-        except Exception as e:
-            print(f"ERROR: An exception occurred in generate_fight_stream: {e}") # Added for debugging
-            yield json.dumps({"type": "error", "content": f"An error occurred in fight mode: {e}"}) + '\n'
-            
-    return Response(generate_fight_stream(), mimetype='application/x-ndjson')
+            try:
+                async for line in fight_engine_instance.run(narrator_model, detective_model_1, detective_model_2):
+                    print(f"DEBUG: Yielding fight line: {line}")
+                    yield line + '\n'
+            except Exception as e:
+                print(f"ERROR: An exception occurred in stream_content: {e}")
+                yield json.dumps({"type": "error", "content": f"An error occurred in fight mode: {e}"}) + '\n'
+
+        # This runs the entire async generator in a dedicated event loop
+        # and allows it to be consumed synchronously by Flask's Response
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            # Create an iterator from the async generator
+            async_iter = stream_content().__aiter__()
+            while True:
+                try:
+                    # Get the next item from the async generator
+                    yield loop.run_until_complete(async_iter.__anext__())
+                except StopAsyncIteration:
+                    break
+        finally:
+            loop.close()
+
+    return Response(generate_fight_stream_sync(), mimetype='application/x-ndjson')
 
 @app.route('/save_conversation', methods=['POST'])
 def save_conversation():

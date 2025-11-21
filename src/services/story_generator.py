@@ -21,6 +21,7 @@ class StoryGenerator:
             "facil": "con lógica directa, menos elementos rebuscados, causas evidentes.",
             "media": "con una combinación de elementos lógicos y algunos giros inesperados.",
             "dificil": "muy rebuscada, con causas no obvias y múltiples elementos engañosos.",
+            "fight_mode": "balanceada y apta para dos detectives compitiendo.",
         }
 
         return f"""
