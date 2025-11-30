@@ -1,9 +1,11 @@
 import json
 import os
+from json_repair import repair_json
 from datetime import datetime
 from typing import List, Tuple
 from src.services.api_client import APIClient
 from src.models.story import Story
+from src.config.prompts import get_narrator_prompt, get_narrator_validation_prompt
 class Narrator:
     """
     Manages the Narrator AI's role in the Black Stories game.
@@ -22,24 +24,12 @@ class Narrator:
         """
         Constructs the prompt for the Narrator AI to answer a question.
         """
-        history_str = "\n".join([f"Detective: {q}\nNarrador: {a}" for q, a in qa_history])
-        if history_str:
-            history_str = "\n\nHistorial de preguntas y respuestas:\n" + history_str
-
-        return f"""
-        Eres la IA Narrador en un interrogatorio policial formal.
-        Conoces la siguiente historia completa:
-        Situación misteriosa: {self.story.mystery_situation}
-        Solución oculta: {self.story.hidden_solution}
-
-        Tu rol es responder ESTRICTAMENTE solo con "sí", "no" o "no es relevante" a las preguntas del Detective.
-        Mantén un tono profesional y formal. No des pistas adicionales ni explicaciones.
-
-        {history_str}
-
-        Pregunta del Detective: "{question}"
-        Tu respuesta (sí/no/no es relevante):
-        """
+        return get_narrator_prompt(
+            self.story.mystery_situation,
+            self.story.hidden_solution,
+            qa_history,
+            question
+        )
 
     def answer_question(self, question: str, qa_history: List[Tuple[str, str]]) -> str:
         """
@@ -69,35 +59,12 @@ class Narrator:
         """
         Constructs the prompt for the Narrator AI to validate the detective's solution.
         """
-        difficulty_criteria = {
-            "facil": "La evaluación es flexible; capturar el concepto principal es suficiente.",
-            "media": "La evaluación es moderada; debe capturar la esencia de lo que pasó.",
-            "dificil": "La evaluación es estricta; debe mencionar todos los elementos clave de la solución.",
-            "fight_mode": "La evaluación es moderada; debe capturar la esencia de lo que pasó, similar a la dificultad 'media'." # Added for fight mode
-        }
-        
-        # Default to 'media' if 'fight_mode' is used for validation criteria, or if difficulty is not found
-        current_difficulty_criteria = difficulty_criteria.get(self.difficulty, difficulty_criteria["media"])
-
-        return f"""
-        Eres la IA Narrador y tu tarea es validar la solución propuesta por el Detective.
-        Conoces la historia completa:
-        Situación misteriosa: {self.story.mystery_situation}
-        Solución oculta: {self.story.hidden_solution}
-
-        El Detective ha propuesto la siguiente solución:
-        "{detective_solution}"
-
-        Criterio de dificultad para la validación ({self.difficulty}): {difficulty_criteria[self.difficulty]}
-
-        Por favor, evalúa la solución del Detective y proporciona tu veredicto y un análisis detallado en formato JSON:
-        {{
-            "veredicto": "Correcto" o "Incorrecto",
-            "analisis": "Explicación detallada de por qué la solución es correcta o incorrecta,
-                         incluyendo elementos que acertó, elementos que falló,
-                         elementos que le faltaron, y cómo se aplica el criterio de dificultad."
-        }}
-        """
+        return get_narrator_validation_prompt(
+            self.story.mystery_situation,
+            self.story.hidden_solution,
+            detective_solution,
+            self.difficulty
+        )
 
     def validate_solution(self, detective_solution: str) -> Tuple[str, str]:
         """
@@ -116,7 +83,13 @@ class Narrator:
                     if response_text.endswith("```"):
                         response_text = response_text[:-len("```")].strip()
 
-                validation_data = json.loads(response_text)
+                try:
+                    validation_data = json.loads(response_text)
+                except json.JSONDecodeError:
+                     # If standard parsing fails, try to repair it
+                    repaired_json = repair_json(response_text)
+                    validation_data = json.loads(repaired_json)
+
                 verdict = validation_data.get("veredicto", "Incorrecto")
                 analysis = validation_data.get("analisis", "No se pudo generar un análisis detallado.")
                 

@@ -10,7 +10,12 @@ def main():
     game_config = config_loader.get_config()
 
     game_engine = GameEngine(game_config)
-    game_engine.run()
+    for output in game_engine.run(
+        difficulty=game_config["difficulty"],
+        narrator_model=game_config["narrator_model"],
+        detective_model=game_config["detective_model"]
+    ):
+        print(output)
 
 if __name__ == "__main__":
     main()

@@ -4,6 +4,7 @@ from json_repair import repair_json
 from typing import Dict, Any
 from src.services.api_client import APIClient
 from src.models.story import Story
+from src.config.prompts import get_story_generation_prompt
 class StoryGenerator:
     """
     Generates Black Stories using an LLM.
@@ -17,27 +18,7 @@ class StoryGenerator:
         """
         Returns the prompt for generating a Black Story based on difficulty.
         """
-        difficulty_description = {
-            "facil": "con lógica directa, menos elementos rebuscados, causas evidentes.",
-            "media": "con una combinación de elementos lógicos y algunos giros inesperados.",
-            "dificil": "muy rebuscada, con causas no obvias y múltiples elementos engañosos.",
-            "fight_mode": "balanceada y apta para dos detectives compitiendo.",
-        }
-
-        return f"""
-        Eres un experto creador de Black Stories. Tu tarea es generar una historia de Black Stories
-        con el siguiente formato JSON. Es IMPERATIVO que tu respuesta sea ÚNICAMENTE el objeto JSON, sin ningún texto adicional, preámbulo o explicación.
-
-        {{
-            "situacion_misteriosa": "Una breve descripción de la situación inicial que se presenta al detective.",
-            "solucion_oculta": "La explicación completa y detallada de lo que realmente sucedió."
-        }}
-
-        La historia debe ser {difficulty_description[difficulty]}.
-        Asegúrate de que la "solucion_oculta" sea la verdad completa y que la "situacion_misteriosa"
-        sea intrigante pero no revele la solución directamente.
-        La historia debe ser concisa y clara.
-        """
+        return get_story_generation_prompt(difficulty)
 
     def generate_story(self, difficulty: str) -> Story:
         """

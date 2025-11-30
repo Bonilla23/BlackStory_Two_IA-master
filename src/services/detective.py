@@ -2,6 +2,7 @@ from typing import List, Tuple
 from src.services.api_client import APIClient
 from src.models.story import Story
 from src.utils.display import display_error_and_retry
+from src.config.prompts import get_detective_prompt, get_detective_final_solution_prompt
 
 class Detective:
     """
@@ -26,29 +27,7 @@ class Detective:
         """
         Constructs the prompt for the Detective AI to ask a question or attempt a solution.
         """
-        history_str = "\n".join([f"Detective: {q}\nNarrador: {a}" for q, a in qa_history])
-        if history_str:
-            history_str = "\n\nHistorial de preguntas y respuestas:\n" + history_str
-
-        return f"""
-        Eres la IA Detective en un interrogatorio policial formal.
-        Tu objetivo es descubrir la solución a la siguiente situación misteriosa:
-        Situación misteriosa: {self.mystery_situation}
-
-        Mantén un tono profesional como un investigador experimentado.
-        Puedes hacer preguntas al Narrador, quien solo responderá "sí", "no" o "no es relevante".
-        Asegúrate de que tus preguntas estén formuladas de tal manera que la respuesta pueda ser un simple "sí", "no" o "no es relevante".
-        Cuando creas que tienes la solución, indica explícitamente que estás listo para resolver
-        usando frases como "Creo que ya lo tengo", "Voy a resolver", "Tengo la solución", etc.
-        Después de indicar que estás listo, tu siguiente turno será para dar la solución final.
-        Tienes UNA única oportunidad para dar la solución final.
-
-        {history_str}
-
-        Tu siguiente acción (pregunta o indicación de que estás listo para resolver).
-        Asegúrate de que tu respuesta sea una pregunta directa o una de las frases para resolver.
-        NO incluyas "Detective:" al inicio de tu pregunta.
-        """
+        return get_detective_prompt(self.mystery_situation, qa_history)
 
     def ask_question_or_solve(self, qa_history: List[Tuple[str, str]]) -> str:
         """
@@ -80,19 +59,7 @@ class Detective:
         """
         Constructs a prompt specifically for the Detective to provide the final solution.
         """
-        history_str = "\n".join([f"Detective: {q}\nNarrador: {a}" for q, a in qa_history])
-        if history_str:
-            history_str = "\n\nHistorial de preguntas y respuestas:\n" + history_str
-
-        return f"""
-        Eres la IA Detective. Has indicado que estás listo para resolver la situación misteriosa.
-        Esta es tu ÚNICA oportunidad para dar la solución final.
-        Basado en la siguiente situación misteriosa y el historial de preguntas y respuestas:
-        Situación misteriosa: {self.mystery_situation}
-        {history_str}
-
-        Por favor, proporciona tu solución final de manera clara y concisa:
-        """
+        return get_detective_final_solution_prompt(self.mystery_situation, qa_history)
 
     def provide_final_solution(self, qa_history: List[Tuple[str, str]]) -> str:
         """

@@ -51,7 +51,7 @@ Create a `.env` file in the root directory of the project based on `.env.example
 GEMINI_API_KEY=your_gemini_api_key_here
 
 # Ollama Configuration (if used)
-OLLAMA_API_URL=http://localhost:11434
+OLLAMA_HOST=http://localhost:11434
 ```
 
 **Note**: The `.env` file is ignored by Git and should not be committed to version control.
@@ -64,13 +64,13 @@ The game can be configured using command-line arguments:
 python main.py -narrador provider:modelo -detective provider:modelo -dificultad nivel
 ```
 
--   `-narrador`: Specifies the provider and model for the Narrator AI (e.g., `gemini:gemini-2.0-flash`).
+-   `-narrador`: Specifies the provider and model for the Narrator AI (e.g., `gemini:gemini-2.5-flash`).
 -   `-detective`: Specifies the provider and model for the Detective AI (e.g., `ollama:llama2`).
 -   `-dificultad`: Sets the difficulty level (`facil`, `media`, `dificil`).
 
 **Default Values**:
--   `narrador`: `gemini:gemini-2.0-flash`
--   `detective`: `gemini:gemini-2.0-flash`
+-   `narrador`: `gemini:gemini-2.5-flash`
+-   `detective`: `gemini:gemini-2.5-flash`
 -   `dificultad`: `media`
 
 ## Usage Examples
@@ -89,4 +89,4 @@ Then, open your browser and go to `http://127.0.0.1:5000` (or the address shown 
 
 -   Python 3.10 or higher
 -   `uv` package manager
--   Access to Gemini API (with `GEMINI_API_KEY`) or a local Ollama server (with `OLLAMA_API_URL` configured)
+-   Access to Gemini API (with `GEMINI_API_KEY`) or a local Ollama server (with `OLLAMA_HOST` configured)
