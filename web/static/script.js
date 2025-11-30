@@ -1,226 +1,282 @@
-document.getElementById('game-form').addEventListener('submit', async function(event) {
-    event.preventDefault();
-    await startGame(this);
-});
-
-document.getElementById('fight-mode-form').addEventListener('submit', async function(event) {
-    event.preventDefault();
-    await startFightMode(this);
-});
-
-// Fight Mode Toggle Logic
-const fightModeYes = document.getElementById('fight-mode-yes');
-const fightModeNo = document.getElementById('fight-mode-no');
-const fightModeSection = document.getElementById('fight-mode-section');
-const startGameButton = document.getElementById('start-game-button');
-const startFightButton = document.getElementById('start-fight-button');
-
-function toggleFightModeSection() {
-    const detectiveModelLabel = document.querySelector('label[for="detective-model"]');
-    const detectiveModelInput = document.getElementById('detective-model');
-
-    if (fightModeYes.checked) {
-        fightModeSection.style.display = 'block';
-        startGameButton.style.display = 'none'; // Hide Start Game button when fight mode is active
-        startFightButton.style.display = 'block'; // Show Start Fight button
-        document.getElementById('game-output').style.display = 'none';
-        document.getElementById('fight-output').style.display = 'block';
-
-        // Hide detective model from main game form
-        if (detectiveModelLabel) detectiveModelLabel.style.display = 'none';
-        if (detectiveModelInput) detectiveModelInput.style.display = 'none';
-
-    } else {
-        fightModeSection.style.display = 'none';
-        startGameButton.style.display = 'block'; // Show Start Game button when fight mode is inactive
-        startFightButton.style.display = 'none'; // Hide Start Fight button
-        document.getElementById('game-output').style.display = 'block';
-        document.getElementById('fight-output').style.display = 'none';
-
-        // Show detective model from main game form
-        if (detectiveModelLabel) detectiveModelLabel.style.display = 'block';
-        if (detectiveModelInput) detectiveModelInput.style.display = 'block';
-    }
-}
-
-fightModeYes.addEventListener('change', toggleFightModeSection);
-fightModeNo.addEventListener('change', toggleFightModeSection);
-
-// Initial state
-toggleFightModeSection();
-
-async function startGame(form) {
-    document.getElementById('game-output').style.display = 'block';
-    document.getElementById('fight-output').style.display = 'none';
-
-    // Ensure the correct button is disabled
-    const submitButton = document.getElementById('start-game-button');
-    if (submitButton) {
-        submitButton.disabled = true;
-    }
-
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
-
-    const gameOutput = document.getElementById('game-output');
-    gameOutput.innerHTML = '<div class="event">Starting game...</div>';
-
-    const response = await fetch('/start_game', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    });
-
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    gameOutput.innerHTML = '';
-
-    await processStream(reader, decoder, gameOutput, submitButton, (line) => {
-        if (line.trim() === '') return;
-        
-        const messageElement = document.createElement('div');
-        // Determine class based on content
-        if (line.startsWith('Generando') || line.startsWith('==') || line.startsWith('Narrador:') || line.startsWith('Detective:') || line.startsWith('Dificultad:') || line.startsWith('---') || line.startsWith('Misterio:') || line.startsWith('¡Se ha alcanzado') || line.startsWith('El Detective tiene') || line.startsWith('RESULTADO:') || line.startsWith('HISTORIA ORIGINAL:') || line.startsWith('Situación misteriosa:') || line.startsWith('Solución oculta:') || line.startsWith('SOLUCIÓN DEL DETECTIVE:') || line.startsWith('No se proporcionó') || line.startsWith('VEREDICTO DEL NARRADOR:') || line.startsWith('Veredicto:') || line.startsWith('Análisis:') || line.startsWith('El juego ha terminado')) {
-            messageElement.classList.add('event');
-        } else if (line.startsWith('Detective:')) {
-            messageElement.classList.add('detective');
-            line = line.replace('Detective: ', ''); // Remove prefix for display
-        } else if (line.startsWith('Narrador:')) {
-            messageElement.classList.add('narrator');
-            line = line.replace('Narrador: ', ''); // Remove prefix for display
-        } else if (line.startsWith('Error')) {
-            messageElement.classList.add('error');
-        }
-
-        if (line === 'save_conversation') {
-            const saveButton = document.createElement('button');
-            saveButton.textContent = 'Save Conversation';
-            saveButton.addEventListener('click', async () => {
-                await fetch('/save_conversation', { method: 'POST' });
-                alert('Conversation saved!');
-                saveButton.disabled = true;
-            });
-            gameOutput.appendChild(saveButton);
-            return;
-        }
-
-        messageElement.textContent = line;
-        gameOutput.appendChild(messageElement);
-    });
-}
-
-async function startFightMode(form) {
-    document.getElementById('game-output').style.display = 'none';
-    document.getElementById('fight-output').style.display = 'block';
-
-    // Ensure the correct button is disabled based on the form context
-    const submitButton = form.id === 'game-form' ? document.getElementById('start-game-button') : document.getElementById('start-fight-button');
-    if (submitButton) {
-        submitButton.disabled = true;
-    }
-
-    const formDataFight = new FormData(form);
-    const dataFight = Object.fromEntries(formDataFight.entries());
-
-    // Get narrator model from the main game form
+document.addEventListener('DOMContentLoaded', () => {
+    // DOM Elements
     const gameForm = document.getElementById('game-form');
-    const formDataGame = new FormData(gameForm);
-    const dataGame = Object.fromEntries(formDataGame.entries());
+    const fightModeForm = document.getElementById('fight-mode-form');
+    const fightModeCheckbox = document.getElementById('fight-mode-checkbox');
+    const fightModeSettings = document.getElementById('fight-mode-settings');
+    const narratorGroup = document.getElementById('narrator-group');
+    const detectiveGroup = document.getElementById('detective-group');
+    const startGameBtn = document.getElementById('start-game-btn');
+    const startFightBtn = document.getElementById('start-fight-btn');
+    const chatContainer = document.getElementById('chat-container');
+    const typingIndicator = document.getElementById('typing-indicator');
+    const sessionTitle = document.getElementById('session-title');
+    const statusBadge = document.getElementById('status-badge');
+    const saveBtn = document.getElementById('save-btn');
 
-    const data = {
-        ...dataFight, // Contains detective_model_1 and detective_model_2
-        narrator_model: dataGame.narrator_model || 'gpt-4', // Use game form's narrator, default to gpt-4
-        difficulty: dataGame.difficulty, // Include difficulty from the main game form
-    };
+    // State
+    let isFightMode = false;
+    let isGameRunning = false;
+    let mysteryShown = false; // Track if the mystery has been shown
 
-    const fightConversationOutput = document.getElementById('fight-conversation-output');
-    const fightSummary = document.getElementById('fight-summary');
-    fightConversationOutput.innerHTML = '<div class="event">Starting fight mode...</div>';
-    fightSummary.innerHTML = '';
+    // Event Listeners
+    fightModeCheckbox.addEventListener('change', toggleFightMode);
+    startGameBtn.addEventListener('click', () => startGame());
+    startFightBtn.addEventListener('click', () => startFight());
+    saveBtn.addEventListener('click', saveConversation);
 
-    const response = await fetch('/start_fight', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    });
+    // Toggle Fight Mode
+    function toggleFightMode() {
+        isFightMode = fightModeCheckbox.checked;
 
-    const reader = response.body.getReader();
-    const decoder = new TextDecoder();
-    fightConversationOutput.innerHTML = ''; // Clear initial message once stream starts
-
-    await processStream(reader, decoder, null, submitButton, (line) => {
-        if (line.trim() === '') return;
-        
-        try {
-            const msg = JSON.parse(line);
-            const messageElement = document.createElement('div');
-
-            if (msg.type === 'narrator') {
-                messageElement.classList.add('narrator');
-                messageElement.textContent = msg.content;
-                fightConversationOutput.appendChild(messageElement);
-            } else if (msg.type === 'detective1_question') {
-                messageElement.classList.add('detective', 'detective1-question');
-                messageElement.textContent = msg.content; // Removed duplicate prefix
-                fightConversationOutput.appendChild(messageElement);
-            } else if (msg.type === 'detective1_answer') {
-                messageElement.classList.add('narrator', 'detective1-answer'); // Narrator answers detective 1
-                messageElement.textContent = msg.content; // Removed duplicate prefix
-                fightConversationOutput.appendChild(messageElement);
-            } else if (msg.type === 'detective2_question') {
-                messageElement.classList.add('detective', 'detective2-question');
-                messageElement.textContent = msg.content; // Removed duplicate prefix
-                fightConversationOutput.appendChild(messageElement);
-            } else if (msg.type === 'detective2_answer') {
-                messageElement.classList.add('narrator', 'detective2-answer'); // Narrator answers detective 2
-                messageElement.textContent = msg.content; // Removed duplicate prefix
-                fightConversationOutput.appendChild(messageElement);
-            } else if (msg.type === 'summary') {
-                const summaryItem = document.createElement('div');
-                summaryItem.classList.add('fight-summary-item');
-                summaryItem.innerHTML = msg.content; // Summary content is HTML
-                fightSummary.appendChild(summaryItem);
-            } else if (msg.type === 'error') {
-                messageElement.classList.add('error');
-                messageElement.textContent = `Error: ${msg.content}`;
-                fightConversationOutput.appendChild(messageElement);
-                fightSummary.appendChild(messageElement.cloneNode(true)); // Also show error in summary area
-            } else {
-                 messageElement.classList.add('event');
-                 messageElement.textContent = msg.content;
-                 fightConversationOutput.appendChild(messageElement);
-            }
-        } catch (e) {
-            console.error("Failed to parse JSON for line:", line, e);
-            const errorElement = document.createElement('div');
-            errorElement.classList.add('error');
-            errorElement.textContent = `Error processing message: ${line}`;
-            fightConversationOutput.appendChild(errorElement);
-        }
-    });
-}
-
-async function processStream(reader, decoder, outputElement, submitButton, processLineCallback) {
-    let buffer = '';
-    while (true) {
-        const { done, value } = await reader.read();
-        if (done) {
-            if (buffer) {
-                processLineCallback(buffer);
-            }
-            submitButton.disabled = false;
-            break;
-        }
-        buffer += decoder.decode(value, { stream: true });
-        const lines = buffer.split('\n');
-        buffer = lines.pop();
-
-        for (const line of lines) {
-            processLineCallback(line);
+        if (isFightMode) {
+            fightModeSettings.classList.remove('hidden');
+            narratorGroup.classList.remove('hidden'); // Narrator is used in both
+            detectiveGroup.classList.add('hidden'); // Single detective hidden in fight mode
+            startGameBtn.classList.add('hidden');
+            startFightBtn.classList.remove('hidden');
+            sessionTitle.textContent = "Fight Mode Session";
+        } else {
+            fightModeSettings.classList.add('hidden');
+            narratorGroup.classList.remove('hidden');
+            detectiveGroup.classList.remove('hidden');
+            startGameBtn.classList.remove('hidden');
+            startFightBtn.classList.add('hidden');
+            sessionTitle.textContent = "Single Player Session";
         }
     }
-}
+
+    // Helper: Add Message to Chat
+    function addMessage(content, type, senderName = null) {
+        const messageRow = document.createElement('div');
+        messageRow.classList.add('message-row', type);
+
+        const bubble = document.createElement('div');
+        bubble.classList.add('message-bubble');
+
+        if (type === 'mystery') {
+            bubble.classList.add('mystery-bubble');
+            senderName = 'Misterio';
+        } else if (type === 'narrator') {
+            bubble.classList.add('narrator-bubble');
+            senderName = senderName || 'Narrador';
+        } else if (type === 'detective') {
+            bubble.classList.add('detective-bubble');
+            senderName = senderName || 'Detective';
+        } else if (type === 'detective2') { // Custom type for 2nd detective
+            bubble.classList.add('detective2-bubble');
+            senderName = senderName || 'Detective 2';
+            messageRow.classList.add('detective'); // Align right like detective 1
+        } else if (type === 'system') {
+            bubble.classList.add('system-message');
+        } else if (type === 'error') {
+            bubble.classList.add('error-message');
+        }
+
+        if (senderName && type !== 'system' && type !== 'error') {
+            const nameSpan = document.createElement('span');
+            nameSpan.classList.add('sender-name');
+            nameSpan.textContent = senderName;
+            bubble.appendChild(nameSpan);
+        }
+
+        // Handle HTML content for summary or plain text for messages
+        if (type === 'summary') {
+            bubble.innerHTML = content; // Allow HTML for summary
+            bubble.classList.add('fight-summary'); // Special styling
+            messageRow.classList.add('system'); // Center align
+        } else {
+            const textNode = document.createTextNode(content);
+            bubble.appendChild(textNode);
+        }
+
+        messageRow.appendChild(bubble);
+        chatContainer.appendChild(messageRow);
+        scrollToBottom();
+    }
+
+    // Helper: Scroll to Bottom
+    function scrollToBottom() {
+        chatContainer.scrollTop = chatContainer.scrollHeight;
+    }
+
+    // Helper: Set Loading State
+    function setLoading(loading) {
+        isGameRunning = loading;
+        startGameBtn.disabled = loading;
+        startFightBtn.disabled = loading;
+
+        if (loading) {
+            typingIndicator.classList.remove('hidden');
+            statusBadge.textContent = "Running...";
+            statusBadge.className = "status-badge active";
+            saveBtn.disabled = true;
+        } else {
+            typingIndicator.classList.add('hidden');
+            statusBadge.textContent = "Completed";
+            statusBadge.className = "status-badge ready";
+            saveBtn.disabled = false;
+        }
+        scrollToBottom();
+    }
+
+    // Start Single Player Game
+    async function startGame() {
+        if (isGameRunning) return;
+
+        // Clear chat and reset mystery flag
+        chatContainer.innerHTML = '';
+        mysteryShown = false;
+        addMessage("Starting new game session...", "system");
+        setLoading(true);
+
+        const formData = new FormData(gameForm);
+        const data = Object.fromEntries(formData.entries());
+
+        try {
+            const response = await fetch('/start_game', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            await processStream(reader, decoder, (line) => {
+                if (!line.trim()) return;
+
+                // Simple parsing logic based on prefixes
+                if (line.startsWith('Narrator:')) {
+                    const content = line.replace('Narrator:', '').trim();
+                    // First narrator message is the mystery
+                    if (!mysteryShown) {
+                        addMessage(content, 'mystery');
+                        mysteryShown = true;
+                    } else {
+                        addMessage(content, 'narrator');
+                    }
+                } else if (line.startsWith('Detective:')) {
+                    addMessage(line.replace('Detective:', '').trim(), 'detective');
+                } else if (line.startsWith('Error')) {
+                    addMessage(line, 'error');
+                } else if (line === 'save_conversation') {
+                    // Ignore, handled by UI state
+                } else {
+                    // Treat everything else as system/event messages
+                    // Filter out some internal debug lines if needed
+                    if (!line.startsWith('DEBUG:')) {
+                        addMessage(line, 'system');
+                    }
+                }
+            });
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // Start Fight Mode
+    async function startFight() {
+        if (isGameRunning) return;
+
+        chatContainer.innerHTML = '';
+        mysteryShown = false;
+        addMessage("Starting fight mode session...", "system");
+        setLoading(true);
+
+        const gameFormData = new FormData(gameForm);
+        const fightFormData = new FormData(fightModeForm);
+
+        const data = {
+            ...Object.fromEntries(fightFormData.entries()),
+            narrator_model: gameFormData.get('narrator_model'),
+            difficulty: gameFormData.get('difficulty')
+        };
+
+        try {
+            const response = await fetch('/start_fight', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+
+            await processStream(reader, decoder, (line) => {
+                if (!line.trim()) return;
+
+                try {
+                    const msg = JSON.parse(line);
+
+                    if (msg.type === 'narrator') {
+                        // First narrator message is the mystery
+                        if (!mysteryShown) {
+                            addMessage(msg.content, 'mystery');
+                            mysteryShown = true;
+                        } else {
+                            addMessage(msg.content, 'narrator');
+                        }
+                    } else if (msg.type.includes('detective1')) {
+                        // Extract content, remove prefixes if present
+                        let content = msg.content.replace(/^Detective 1 (pregunta|dice):/, '').trim();
+                        addMessage(content, 'detective', 'Detective 1');
+                    } else if (msg.type.includes('detective2')) {
+                        let content = msg.content.replace(/^Detective 2 (pregunta|dice):/, '').trim();
+                        addMessage(content, 'detective2', 'Detective 2');
+                    } else if (msg.type === 'summary') {
+                        addMessage(msg.content, 'summary');
+                    } else if (msg.type === 'error') {
+                        addMessage(msg.content, 'error');
+                    } else {
+                        addMessage(msg.content, 'system');
+                    }
+                } catch (e) {
+                    console.error("JSON Parse Error:", e, line);
+                    // Fallback for non-JSON lines
+                    addMessage(line, 'system');
+                }
+            });
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    // Process Stream Helper
+    async function processStream(reader, decoder, callback) {
+        let buffer = '';
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) {
+                if (buffer) callback(buffer);
+                break;
+            }
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            buffer = lines.pop();
+
+            for (const line of lines) {
+                callback(line);
+            }
+        }
+    }
+
+    // Save Conversation
+    async function saveConversation() {
+        try {
+            const response = await fetch('/save_conversation', { method: 'POST' });
+            const result = await response.json();
+            if (response.ok) {
+                alert('Conversation saved successfully!');
+            } else {
+                alert(`Error saving: ${result.message}`);
+            }
+        } catch (error) {
+            alert(`Network error: ${error.message}`);
+        }
+    }
+});

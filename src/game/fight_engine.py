@@ -113,7 +113,7 @@ class FightEngine:
         game_state.qa_history.append((detective_response, narrator_answer))
         
         yield json.dumps({"type": f"detective{detective_id}_question", "content": f"Detective {detective_id} pregunta: {detective_response}"})
-        yield json.dumps({"type": f"detective{detective_id}_answer", "content": f"Narrador responde a Detective {detective_id}: {narrator_answer}"})
+        yield json.dumps({"type": "narrator", "content": f"Narrador responde a Detective {detective_id}: {narrator_answer}"})
         
         await asyncio.sleep(0.5) # Small delay for readability
 

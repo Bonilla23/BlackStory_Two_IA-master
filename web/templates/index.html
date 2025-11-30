@@ -1,60 +1,108 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>BlackStory AI</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 </head>
+
 <body>
-    <div class="container">
-        <h1>BlackStory AI</h1>
-        <form id="game-form">
-            <label for="difficulty">Difficulty:</label>
-            <select id="difficulty" name="difficulty">
-                <option value="facil">Fácil</option>
-                <option value="media">Media</option>
-                <option value="dificil">Difícil</option>
-            </select>
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="brand">
+                <h1>BlackStory AI</h1>
+                <p class="subtitle">Mystery & Deduction</p>
+            </div>
 
-            <label for="narrator-model">Narrator Model:</label>
-            <input type="text" id="narrator-model" name="narrator_model" value="gemini:gemini-2.5-flash">
+            <div class="settings-scroll">
+                <form id="game-form">
+                    <div class="form-group">
+                        <label for="difficulty">Difficulty</label>
+                        <div class="select-wrapper">
+                            <select id="difficulty" name="difficulty">
+                                <option value="facil">Fácil</option>
+                                <option value="media">Media</option>
+                                <option value="dificil">Difícil</option>
+                            </select>
+                        </div>
+                    </div>
 
-            <label for="detective-model">Detective Model:</label>
-            <input type="text" id="detective-model" name="detective_model" value="gemini:gemini-2.5-flash">
-        </form>
+                    <div class="form-group" id="narrator-group">
+                        <label for="narrator-model">Narrator Model</label>
+                        <input type="text" id="narrator-model" name="narrator_model" value="gemini:gemini-2.5-flash">
+                    </div>
 
-        <hr>
+                    <div class="form-group" id="detective-group">
+                        <label for="detective-model">Detective Model</label>
+                        <input type="text" id="detective-model" name="detective_model" value="gemini:gemini-2.5-flash">
+                    </div>
+                </form>
 
-        <h2>Fight Mode</h2>
-        <div class="fight-mode-toggle">
-            <label>¿Activar Modo Pelea?</label>
-            <input type="radio" id="fight-mode-yes" name="fight_mode_toggle" value="yes"> <label for="fight-mode-yes">Sí</label>
-            <input type="radio" id="fight-mode-no" name="fight_mode_toggle" value="no" checked> <label for="fight-mode-no">No</label>
-        </div>
+                <div class="divider"></div>
 
-        <div id="fight-mode-section" style="display: none;">
-            <form id="fight-mode-form">
-                <label for="detective-model-1">Detective Model 1:</label>
-                <input type="text" id="detective-model-1" name="detective_model_1" value="gemini:gemini-2.5-flash">
+                <div class="fight-mode-toggle">
+                    <label class="toggle-label">Fight Mode</label>
+                    <div class="toggle-switch">
+                        <input type="checkbox" id="fight-mode-checkbox">
+                        <label for="fight-mode-checkbox" class="slider"></label>
+                    </div>
+                </div>
 
-                <label for="detective-model-2">Detective Model 2:</label>
-                <input type="text" id="detective-model-2" name="detective_model_2" value="gemini:gemini-2.5-flash">
+                <div id="fight-mode-settings" class="hidden">
+                    <form id="fight-mode-form">
+                        <div class="form-group">
+                            <label for="detective-model-1">Detective 1 Model</label>
+                            <input type="text" id="detective-model-1" name="detective_model_1"
+                                value="gemini:gemini-2.5-flash">
+                        </div>
 
-                <button type="submit" id="start-fight-button">Start Fight</button>
-            </form>
-        </div>
-        
-        <hr>
-        <button type="submit" id="start-game-button" form="game-form">Start Game</button>
+                        <div class="form-group">
+                            <label for="detective-model-2">Detective 2 Model</label>
+                            <input type="text" id="detective-model-2" name="detective_model_2"
+                                value="gemini:gemini-2.5-flash">
+                        </div>
+                    </form>
+                </div>
+            </div>
 
-        <div id="game-output"></div>
-        <div id="fight-output" style="display: none;">
-            <h3>Fight Results</h3>
-            <div id="fight-conversation-output"></div>
-            <div id="fight-summary"></div>
-        </div>
+            <div class="actions">
+                <button type="button" id="start-game-btn" class="btn btn-primary">Start Game</button>
+                <button type="button" id="start-fight-btn" class="btn btn-danger hidden">Start Fight</button>
+            </div>
+        </aside>
+
+        <main class="chat-interface">
+            <div class="chat-header">
+                <div class="header-info">
+                    <h2 id="session-title">New Game</h2>
+                    <span class="status-badge ready" id="status-badge">Ready</span>
+                </div>
+                <div class="header-actions">
+                    <button id="save-btn" class="btn btn-secondary btn-sm" disabled>Save Log</button>
+                </div>
+            </div>
+
+            <div id="chat-container" class="chat-messages">
+                <div class="empty-state">
+                    <div class="icon">🕵️‍♂️</div>
+                    <h3>Ready to solve a mystery?</h3>
+                    <p>Configure your AI agents on the left and start the session.</p>
+                </div>
+            </div>
+
+            <div id="typing-indicator" class="typing-indicator hidden">
+                <div class="dot"></div>
+                <div class="dot"></div>
+                <div class="dot"></div>
+            </div>
+        </main>
     </div>
     <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
+
 </html>
