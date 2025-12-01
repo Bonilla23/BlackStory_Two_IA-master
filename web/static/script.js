@@ -188,6 +188,12 @@ document.addEventListener('DOMContentLoaded', () => {
         const data = Object.fromEntries(formData.entries());
         data.session_id = sessionId;
 
+        // Manually add detective_model since it's outside the main form
+        const detectiveModelInput = document.getElementById('detective-model');
+        if (detectiveModelInput) {
+            data.detective_model = detectiveModelInput.value;
+        }
+
         try {
             const response = await fetch('/start_game', {
                 method: 'POST',

@@ -123,15 +123,36 @@ class GameEngine:
             else:
                 result = "DERROTA"
         
-        yield f"RESULTADO: {result}"
-        yield "HISTORIA ORIGINAL:"
-        yield f"Situación misteriosa: {self.game_state.mystery_situation}"
-        yield f"Solución oculta: {self.game_state.hidden_solution}"
-        yield "SOLUCIÓN DEL DETECTIVE:"
-        yield self.game_state.detective_solution_attempt if self.game_state.detective_solution_attempt else "No se proporcionó una solución final."
-        yield "VEREDICTO DEL NARRADOR:"
-        yield f"Veredicto: {verdict}"
-        yield f"Análisis: {analysis}"
+        # Construct HTML Summary
+        summary_html = f"""
+        <div class="game-result {result.lower()}">
+            <h2>RESULTADO: {result}</h2>
+        </div>
+        
+        <div class="summary-section">
+            <h3>📜 Historia Original</h3>
+            <p><strong>Situación:</strong> {self.game_state.mystery_situation}</p>
+        </div>
+
+        <div class="summary-section hidden-solution">
+            <h3>🕵️ Solución Oculta</h3>
+            <div class="solution-text">{self.game_state.hidden_solution}</div>
+        </div>
+
+        <div class="summary-section">
+            <h3>📝 Solución del Detective</h3>
+            <p>{self.game_state.detective_solution_attempt if self.game_state.detective_solution_attempt else "No se proporcionó una solución final."}</p>
+        </div>
+
+        <div class="summary-section verdict">
+            <h3>⚖️ Veredicto del Narrador</h3>
+            <p><strong>Veredicto:</strong> {verdict}</p>
+            <p><strong>Análisis:</strong> {analysis}</p>
+        </div>
+        """
+
+        # Yield as a single JSON message
+        yield json.dumps({"type": "summary", "content": summary_html})
         yield "save_conversation"
 
     def run(self, difficulty: str, narrator_model: str, detective_model: str) -> Generator[str, None, None]:

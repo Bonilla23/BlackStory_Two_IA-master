@@ -433,3 +433,97 @@ select:focus {
         transform: scale(1);
     }
 }
+
+/* Game Summary Styles */
+.fight-summary {
+    width: 100%;
+    max-width: 800px;
+    margin: 0 auto;
+    background-color: rgba(30, 41, 59, 0.7);
+    border: 1px solid var(--glass-border);
+    border-radius: 1rem;
+    padding: 2rem;
+    backdrop-filter: blur(12px);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+    color: var(--text-primary);
+}
+
+.game-result {
+    text-align: center;
+    margin-bottom: 2rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.game-result h2 {
+    font-size: 2rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+}
+
+.game-result.victoria h2 {
+    background: linear-gradient(135deg, #34d399, #10b981);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+.game-result.derrota h2 {
+    background: linear-gradient(135deg, #f87171, #ef4444);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 0 20px rgba(239, 68, 68, 0.3);
+}
+
+.summary-section {
+    margin-bottom: 1.5rem;
+    background-color: rgba(15, 23, 42, 0.4);
+    padding: 1.25rem;
+    border-radius: 0.75rem;
+    border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+.summary-section:last-child {
+    margin-bottom: 0;
+}
+
+.summary-section h3 {
+    font-size: 1.1rem;
+    color: var(--accent-primary);
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.summary-section p {
+    line-height: 1.6;
+    color: var(--text-secondary);
+    font-size: 0.95rem;
+}
+
+.summary-section strong {
+    color: var(--text-primary);
+}
+
+.hidden-solution {
+    background-color: rgba(124, 58, 237, 0.1);
+    border-color: rgba(124, 58, 237, 0.2);
+}
+
+.hidden-solution h3 {
+    color: #a78bfa;
+}
+
+.solution-text {
+    white-space: pre-wrap;
+    /* Preserve newlines */
+    color: #e2e8f0;
+    line-height: 1.7;
+}
+
+.verdict {
+    background-color: rgba(255, 255, 255, 0.03);
+    border-top: 1px solid var(--glass-border);
+}
