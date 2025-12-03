@@ -6,7 +6,7 @@ from src.models.story import Story
 from src.services.api_client import APIClient
 from src.services.story_generator import StoryGenerator
 from src.services.narrator import Narrator
-from src.config.prompts import get_visionary_prompt, get_skeptic_prompt, get_leader_prompt
+from src.config.prompts import get_visionary_prompt, get_skeptic_prompt, get_leader_prompt, get_leader_final_guess_prompt
 
 class CouncilEngine:
     """
@@ -64,10 +64,11 @@ class CouncilEngine:
 
         while not self.game_state.detective_solved:
             current_questions = len(self.game_state.qa_history)
+            is_final_turn = False
 
             if current_questions >= max_questions:
-                yield f"¡Límite de {max_questions} preguntas alcanzado! El Líder debe decidir."
-                # Force solution logic could go here, but for now we rely on the leader deciding naturally or user stopping.
+                yield json.dumps({"type": "system", "content": f"⚠️ ¡Límite de {max_questions} preguntas alcanzado! El Consejo debe arriesgar una solución final."})
+                is_final_turn = True
             
             # 1. Visionary Phase
             yield json.dumps({"type": "system", "content": "🤔 El Visionario está pensando..."})
@@ -83,12 +84,22 @@ class CouncilEngine:
 
             # 3. Leader Phase
             yield json.dumps({"type": "system", "content": "🫡 El Líder está decidiendo..."})
-            leader_prompt = get_leader_prompt(self.game_state.mystery_situation, self.game_state.qa_history, visionary_thought, skeptic_thought)
+            
+            if is_final_turn:
+                leader_prompt = get_leader_final_guess_prompt(self.game_state.mystery_situation, self.game_state.qa_history, visionary_thought, skeptic_thought)
+            else:
+                leader_prompt = get_leader_prompt(self.game_state.mystery_situation, self.game_state.qa_history, visionary_thought, skeptic_thought)
+            
             leader_action = self.api_client.generate_text(leader_model, leader_prompt).strip()
 
-            # Check if Leader wants to solve
-            if "SOLUCIÓN:" in leader_action.upper():
-                solution_text = leader_action.split(":", 1)[1].strip()
+            # Check if Leader wants to solve OR if it's forced
+            if "SOLUCIÓN:" in leader_action.upper() or is_final_turn:
+                # If forced and missing prefix, assume the whole text is the solution
+                if "SOLUCIÓN:" in leader_action.upper():
+                    solution_text = leader_action.split(":", 1)[1].strip()
+                else:
+                    solution_text = leader_action
+
                 self.game_state.detective_solution_attempt = solution_text
                 self.game_state.detective_solved = True
                 yield json.dumps({"type": "council_leader", "content": f"¡Tengo la solución! {solution_text}"})

@@ -217,3 +217,26 @@ def get_hint_prompt(mystery_situation: str, hidden_solution: str, qa_history: Li
     pero NO le des la respuesta directamente. Hazlo en forma de pregunta retórica o sugerencia.
     Ejemplo: "¿Has considerado revisar el estado del arma?" o "Tal vez el motivo no sea el dinero..."
     """
+
+def get_leader_final_guess_prompt(mystery_situation: str, qa_history: List[Tuple[str, str]], visionary_theory: str, skeptic_critique: str) -> str:
+    """
+    Prompt for the Leader Detective when the question limit is reached. Forces a solution.
+    """
+    history_str = "\n".join([f"Pregunta: {q}\nRespuesta: {a}" for q, a in qa_history])
+    if history_str:
+        history_str = "\n\nHistorial del caso:\n" + history_str
+
+    return f"""
+    Eres "El Líder". SE HA ALCANZADO EL LÍMITE DE PREGUNTAS.
+    YA NO PUEDES HACER MÁS PREGUNTAS. DEBES DAR UNA SOLUCIÓN FINAL AHORA MISMO.
+
+    Caso: {mystery_situation}
+    {history_str}
+
+    El Visionario dice: "{visionary_theory}"
+    El Escéptico dice: "{skeptic_critique}"
+
+    Basado en todo lo anterior, proporciona la SOLUCIÓN FINAL al misterio.
+    Tu respuesta DEBE comenzar con "SOLUCIÓN: " seguido de tu explicación completa.
+    """
+
