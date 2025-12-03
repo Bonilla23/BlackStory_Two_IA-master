@@ -21,6 +21,11 @@ document.addEventListener('DOMContentLoaded', () => {
     const saveBtn = document.getElementById('save-btn');
     const hintBtn = document.getElementById('hint-btn');
 
+    const chatInputArea = document.getElementById('chat-input-area');
+    const userInput = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const solveBtn = document.getElementById('solve-btn');
+
     // State
     let currentMode = 'single'; // 'single', 'fight', 'council'
     let isGameRunning = false;
@@ -46,6 +51,12 @@ document.addEventListener('DOMContentLoaded', () => {
     saveBtn.addEventListener('click', saveConversation);
     hintBtn.addEventListener('click', requestHint);
 
+    sendBtn.addEventListener('click', sendMessage);
+    userInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') sendMessage();
+    });
+    solveBtn.addEventListener('click', solveMystery);
+
     // Handle Mode Change
     function handleModeChange() {
         currentMode = gameModeSelect.value;
@@ -55,6 +66,8 @@ document.addEventListener('DOMContentLoaded', () => {
         fightModeSettings.classList.add('hidden');
         councilModeSettings.classList.add('hidden');
         detectiveGroup.classList.add('hidden'); // Default hidden, shown only in single
+        hintBtn.classList.add('hidden');
+        chatInputArea.classList.add('hidden');
 
         if (currentMode === 'single') {
             singleModeSettings.classList.remove('hidden');
@@ -62,20 +75,25 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionTitle.textContent = "Single Player Session";
             startGameBtn.textContent = "Start Game";
             startGameBtn.className = "btn btn-primary";
+        } else if (currentMode === 'interactive') {
+            singleModeSettings.classList.remove('hidden'); // Reuse single settings for narrator model
+            // Hide detective model input since user is detective
+            detectiveGroup.classList.add('hidden');
+            sessionTitle.textContent = "Interactive Session";
+            startGameBtn.textContent = "Start Interactive Game";
+            startGameBtn.className = "btn btn-primary";
             hintBtn.classList.remove('hidden');
         } else if (currentMode === 'fight') {
             fightModeSettings.classList.remove('hidden');
             sessionTitle.textContent = "Fight Mode Session";
             startGameBtn.textContent = "Start Fight";
             startGameBtn.className = "btn btn-danger";
-            hintBtn.classList.add('hidden');
         } else if (currentMode === 'council') {
             councilModeSettings.classList.remove('hidden');
             sessionTitle.textContent = "Council Mode Session";
             startGameBtn.textContent = "Start Council";
             startGameBtn.className = "btn btn-warning"; // Use a distinct color if available, or custom class
             startGameBtn.style.backgroundColor = "#f59e0b"; // Manual override for now
-            hintBtn.classList.add('hidden');
         }
     }
 
@@ -162,6 +180,10 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.className = "status-badge active";
             saveBtn.disabled = true;
             if (currentMode === 'single') {
+                // No hint button in single player (AI vs AI)
+            }
+            if (currentMode === 'interactive') {
+                hintBtn.classList.remove('hidden');
                 hintBtn.disabled = false;
             }
         } else {
@@ -169,7 +191,14 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.textContent = "Completed";
             statusBadge.className = "status-badge ready";
             saveBtn.disabled = false;
-            hintBtn.disabled = true;
+
+            if (currentMode === 'interactive') {
+                hintBtn.classList.remove('hidden');
+                hintBtn.disabled = false;
+            } else {
+                hintBtn.classList.add('hidden');
+                hintBtn.disabled = true;
+            }
         }
         scrollToBottom();
     }
@@ -180,6 +209,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (currentMode === 'single') {
             startSingleGame();
+        } else if (currentMode === 'interactive') {
+            startInteractiveGame();
         } else if (currentMode === 'fight') {
             startFightGame();
         } else if (currentMode === 'council') {
@@ -216,6 +247,34 @@ document.addEventListener('DOMContentLoaded', () => {
         } finally {
             setLoading(false);
         }
+    }
+
+    // Start Interactive Game
+    async function startInteractiveGame() {
+        chatContainer.innerHTML = '';
+        mysteryShown = false;
+        addMessage("Starting interactive session...", "system");
+        setLoading(true);
+        chatInputArea.classList.add('hidden'); // Hide input during setup
+
+        const formData = new FormData(gameForm);
+        const data = Object.fromEntries(formData.entries());
+        data.session_id = sessionId;
+
+        try {
+            const response = await fetch('/start_interactive', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            await handleStreamResponse(response);
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+            setLoading(false);
+        }
+        // Note: setLoading(false) is NOT called here because we want to stay "active" 
+        // but we need to switch to "waiting for user" state.
+        // The stream will send a specific message when ready.
     }
 
     // Start Fight Mode
@@ -328,6 +387,13 @@ document.addEventListener('DOMContentLoaded', () => {
             addMessage(msg.content, 'summary');
         } else if (msg.type === 'error') {
             addMessage(msg.content, 'error');
+        } else if (msg.type === 'interactive_ready') {
+            addMessage(msg.content, 'system');
+            setLoading(false); // Stop "loading" animation
+            isGameRunning = true; // But game is still logically running
+            statusBadge.textContent = "Your Turn";
+            chatInputArea.classList.remove('hidden');
+            userInput.focus();
         } else {
             addMessage(msg.content, 'system');
         }
@@ -419,6 +485,65 @@ document.addEventListener('DOMContentLoaded', () => {
             if (isGameRunning) {
                 hintBtn.disabled = false;
             }
+        }
+    }
+
+    // Send Message (Interactive Mode)
+    async function sendMessage() {
+        const text = userInput.value.trim();
+        if (!text) return;
+
+        addMessage(text, 'detective', 'Tú');
+        userInput.value = '';
+        userInput.disabled = true;
+        sendBtn.disabled = true;
+
+        // Show typing indicator
+        typingIndicator.classList.remove('hidden');
+
+        try {
+            const response = await fetch('/ask_narrator', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, question: text })
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                addMessage(result.answer, 'narrator');
+            } else {
+                addMessage(`Error: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            addMessage(`Network error: ${error.message}`, 'error');
+        } finally {
+            userInput.disabled = false;
+            sendBtn.disabled = false;
+            typingIndicator.classList.add('hidden');
+            userInput.focus();
+        }
+    }
+
+    // Solve Mystery (Interactive Mode)
+    async function solveMystery() {
+        const solution = prompt("Por favor, introduce tu solución final al misterio:");
+        if (!solution) return;
+
+        addMessage(`Solución propuesta: ${solution}`, 'detective', 'Tú');
+        chatInputArea.classList.add('hidden'); // Hide input area
+        setLoading(true); // Show loading state
+
+        try {
+            const response = await fetch('/solve_mystery', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, solution: solution })
+            });
+            await handleStreamResponse(response);
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+        } finally {
+            setLoading(false);
         }
     }
 

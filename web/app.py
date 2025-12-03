@@ -198,6 +198,74 @@ def get_hint():
     
     return {"status": "success", "hint": hint}, 200
 
+@app.route('/start_interactive', methods=['POST'])
+def start_interactive():
+    data = request.json
+    difficulty = data.get('difficulty')
+    narrator_model = data.get('narrator_model')
+    session_id = data.get('session_id')
+
+    if not session_id:
+        return Response(json.dumps({"type": "error", "content": "Session ID required"}), mimetype='application/x-ndjson')
+
+    def generate():
+        try:
+            config_loader = Config(parse_cli=False)
+            config = config_loader.get_config()
+            game_engine = GameEngine(config)
+            active_games[session_id] = game_engine
+            
+            for line in game_engine.start_interactive_game(difficulty, narrator_model):
+                print(f"DEBUG: Yielding interactive line: {line}")
+                yield line + '\n'
+        except Exception as e:
+            print(f"ERROR: An exception occurred in start_interactive: {e}")
+            yield json.dumps({"type": "error", "content": f"An error occurred: {e}"})
+
+    return Response(generate(), mimetype='application/x-ndjson')
+
+@app.route('/ask_narrator', methods=['POST'])
+def ask_narrator():
+    data = request.json
+    session_id = data.get('session_id')
+    question = data.get('question')
+
+    if not session_id or not question:
+        return {"status": "error", "message": "Session ID and question required"}, 400
+
+    game_instance = active_games.get(session_id)
+    if not game_instance or not isinstance(game_instance, GameEngine):
+        return {"status": "error", "message": "Game not found"}, 404
+
+    try:
+        answer = game_instance.ask_question(question)
+        return {"status": "success", "answer": answer}, 200
+    except Exception as e:
+        return {"status": "error", "message": str(e)}, 500
+
+@app.route('/solve_mystery', methods=['POST'])
+def solve_mystery():
+    data = request.json
+    session_id = data.get('session_id')
+    solution = data.get('solution')
+
+    if not session_id or not solution:
+        return Response(json.dumps({"type": "error", "content": "Session ID and solution required"}), mimetype='application/x-ndjson')
+
+    game_instance = active_games.get(session_id)
+    if not game_instance or not isinstance(game_instance, GameEngine):
+        return Response(json.dumps({"type": "error", "content": "Game not found"}), mimetype='application/x-ndjson')
+
+    def generate():
+        try:
+            for line in game_instance.submit_solution(solution):
+                yield line + '\n'
+        except Exception as e:
+            yield json.dumps({"type": "error", "content": f"An error occurred: {e}"})
+
+    return Response(generate(), mimetype='application/x-ndjson')
+
+
 
 if __name__ == '__main__':
     app.run(debug=True)

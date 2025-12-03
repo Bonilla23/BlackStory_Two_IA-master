@@ -170,3 +170,71 @@ class GameEngine:
     def save_conversation(self):
         if self.narrator_ai:
             self.narrator_ai.save_full_conversation()
+
+    def start_interactive_game(self, difficulty: str, narrator_model: str) -> Generator[str, None, None]:
+        """
+        Initializes an interactive game where the user plays as the detective.
+        """
+        yield "Generando una nueva historia de Black Stories para ti..."
+        story_generator = StoryGenerator(self.api_client, narrator_model)
+        
+        story: Story
+        retries = 3
+        for attempt in range(retries):
+            try:
+                story = story_generator.generate_story(difficulty)
+                break
+            except Exception as e:
+                yield f"Error al generar la historia (intento {attempt + 1}/{retries}): {e}"
+                if attempt + 1 == retries:
+                    raise
+        
+        self.game_state = GameState(
+            narrator_model=narrator_model,
+            detective_model="User", # User is the detective
+            difficulty=difficulty,
+            mystery_situation=story.mystery_situation,
+            hidden_solution=story.hidden_solution,
+        )
+
+        # Initialize Narrator immediately for interactive mode
+        self.narrator_ai = Narrator(
+            self.api_client,
+            self.game_state.narrator_model,
+            Story(self.game_state.mystery_situation, self.game_state.hidden_solution),
+            self.game_state.difficulty,
+        )
+
+        yield "============================================================"
+        yield "                  BLACK STORIES AI (INTERACTIVE)"
+        yield "============================================================"
+        yield f"Narrador: {narrator_model}"
+        yield "Detective: TÚ"
+        yield f"Dificultad: {difficulty}"
+        yield "------------------------------------------------------------"
+        yield f"Misterio: {story.mystery_situation}"
+        yield "============================================================"
+        yield json.dumps({"type": "interactive_ready", "content": "Game initialized. Waiting for your questions."})
+
+    def ask_question(self, question: str) -> str:
+        """
+        Processes a question from the user in interactive mode.
+        """
+        if not self.game_state or not self.narrator_ai:
+            raise RuntimeError("Game not initialized.")
+
+        narrator_answer = self.narrator_ai.answer_question(question, self.game_state.qa_history)
+        self.game_state.qa_history.append((question, narrator_answer))
+        return narrator_answer
+
+    def submit_solution(self, solution: str) -> Generator[str, None, None]:
+        """
+        Validates the user's solution and finalizes the interactive game.
+        """
+        if not self.game_state or not self.narrator_ai:
+            raise RuntimeError("Game not initialized.")
+
+        self.game_state.detective_solution_attempt = solution
+        self.game_state.detective_solved = True
+        
+        yield from self._finalize_game()
