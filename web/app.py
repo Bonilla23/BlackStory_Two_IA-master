@@ -11,6 +11,7 @@ import asyncio
 from src.game.game_engine import GameEngine
 from src.game.fight_engine import FightEngine # Import FightEngine
 from src.game.council_engine import CouncilEngine # Import CouncilEngine
+from src.services.hint_generator import HintGenerator # Import HintGenerator
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
 active_games = {} # Dictionary to store game instances by session_id
@@ -167,6 +168,35 @@ def save_conversation():
              return {"status": "error", "message": "Save not supported for this mode"}, 400
             
     return {"status": "error", "message": "Game not started for this session"}, 400
+
+@app.route('/get_hint', methods=['POST'])
+def get_hint():
+    data = request.json
+    session_id = data.get('session_id')
+    
+    if not session_id:
+        return {"status": "error", "message": "Session ID required"}, 400
+
+    game_instance = active_games.get(session_id)
+    
+    # Check if it is a single player game instance
+    if not game_instance or not isinstance(game_instance, GameEngine):
+        return {"status": "error", "message": "Pista solo disponible en modo Single Player"}, 400
+        
+    if not game_instance.game_state:
+        return {"status": "error", "message": "Game state not initialized"}, 400
+
+    # Use the narrator model for generating hints
+    hint_model = game_instance.game_state.narrator_model
+    
+    hint_generator = HintGenerator(game_instance.api_client, hint_model)
+    hint = hint_generator.generate_hint(
+        game_instance.game_state.mystery_situation,
+        game_instance.game_state.hidden_solution,
+        game_instance.game_state.qa_history
+    )
+    
+    return {"status": "success", "hint": hint}, 200
 
 
 if __name__ == '__main__':

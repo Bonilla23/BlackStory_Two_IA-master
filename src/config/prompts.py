@@ -191,3 +191,29 @@ def get_leader_prompt(mystery_situation: str, qa_history: List[Tuple[str, str]],
     Basado en este debate, formula UNA ÚNICA pregunta de "sí/no" para avanzar en el caso.
     Si crees que ya tenemos la solución completa, di exactamente: "SOLUCIÓN: [Tu explicación completa]".
     """
+
+def get_hint_prompt(mystery_situation: str, hidden_solution: str, qa_history: List[Tuple[str, str]]) -> str:
+    """
+    Constructs the prompt for the Hint AI (Watson) to provide a subtle hint.
+    """
+    history_str = "\n".join([f"Detective: {q}\nNarrador: {a}" for q, a in qa_history])
+    if history_str:
+        history_str = "\n\nHistorial de preguntas y respuestas:\n" + history_str
+
+    return f"""
+    Eres "Watson", un asistente inteligente que ayuda al Detective a resolver un misterio.
+    Tu objetivo es dar una PISTA SUTIL para ayudar al Detective a avanzar, SIN REVELAR la solución.
+    
+    Conoces la historia completa:
+    Situación misteriosa: {mystery_situation}
+    Solución oculta: {hidden_solution}
+
+    {history_str}
+
+    Analiza el historial. ¿Qué aspecto importante NO ha preguntado el Detective todavía?
+    ¿En qué se está equivocando o atascando?
+    
+    Proporciona una pista breve (máximo 2 frases) que le haga pensar en la dirección correcta, 
+    pero NO le des la respuesta directamente. Hazlo en forma de pregunta retórica o sugerencia.
+    Ejemplo: "¿Has considerado revisar el estado del arma?" o "Tal vez el motivo no sea el dinero..."
+    """

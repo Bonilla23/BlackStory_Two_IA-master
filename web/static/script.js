@@ -19,6 +19,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const sessionTitle = document.getElementById('session-title');
     const statusBadge = document.getElementById('status-badge');
     const saveBtn = document.getElementById('save-btn');
+    const hintBtn = document.getElementById('hint-btn');
 
     // State
     let currentMode = 'single'; // 'single', 'fight', 'council'
@@ -41,7 +42,9 @@ document.addEventListener('DOMContentLoaded', () => {
     // Event Listeners
     gameModeSelect.addEventListener('change', handleModeChange);
     startGameBtn.addEventListener('click', () => handleStartGame());
+    startGameBtn.addEventListener('click', () => handleStartGame());
     saveBtn.addEventListener('click', saveConversation);
+    hintBtn.addEventListener('click', requestHint);
 
     // Handle Mode Change
     function handleModeChange() {
@@ -59,17 +62,20 @@ document.addEventListener('DOMContentLoaded', () => {
             sessionTitle.textContent = "Single Player Session";
             startGameBtn.textContent = "Start Game";
             startGameBtn.className = "btn btn-primary";
+            hintBtn.classList.remove('hidden');
         } else if (currentMode === 'fight') {
             fightModeSettings.classList.remove('hidden');
             sessionTitle.textContent = "Fight Mode Session";
             startGameBtn.textContent = "Start Fight";
             startGameBtn.className = "btn btn-danger";
+            hintBtn.classList.add('hidden');
         } else if (currentMode === 'council') {
             councilModeSettings.classList.remove('hidden');
             sessionTitle.textContent = "Council Mode Session";
             startGameBtn.textContent = "Start Council";
             startGameBtn.className = "btn btn-warning"; // Use a distinct color if available, or custom class
             startGameBtn.style.backgroundColor = "#f59e0b"; // Manual override for now
+            hintBtn.classList.add('hidden');
         }
     }
 
@@ -155,11 +161,15 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.textContent = "Running...";
             statusBadge.className = "status-badge active";
             saveBtn.disabled = true;
+            if (currentMode === 'single') {
+                hintBtn.disabled = false;
+            }
         } else {
             typingIndicator.classList.add('hidden');
             statusBadge.textContent = "Completed";
             statusBadge.className = "status-badge ready";
             saveBtn.disabled = false;
+            hintBtn.disabled = true;
         }
         scrollToBottom();
     }
@@ -380,6 +390,35 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         } catch (error) {
             alert(`Network error: ${error.message}`);
+        }
+    }
+
+
+
+    // Request Hint
+    async function requestHint() {
+        hintBtn.disabled = true;
+        addMessage("Solicitando pista a Watson...", "system");
+
+        try {
+            const response = await fetch('/get_hint', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId })
+            });
+            const result = await response.json();
+
+            if (response.ok) {
+                addMessage(`💡 Pista de Watson: ${result.hint}`, 'system');
+            } else {
+                addMessage(`Error obteniendo pista: ${result.message}`, 'error');
+            }
+        } catch (error) {
+            addMessage(`Error de red: ${error.message}`, 'error');
+        } finally {
+            if (isGameRunning) {
+                hintBtn.disabled = false;
+            }
         }
     }
 
