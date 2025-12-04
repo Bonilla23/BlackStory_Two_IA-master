@@ -56,6 +56,7 @@
                             <select id="game-mode">
                                 <option value="single">Single Player (AI vs AI)</option>
                                 <option value="interactive">Interactive (User vs AI)</option>
+                                <option value="inverse">Modo Inverso (Tú eres el Narrador)</option>
                                 <option value="fight">Fight Mode (1v1)</option>
                                 <option value="council">Council Mode (3 Agents)</option>
                             </select>
@@ -68,6 +69,15 @@
                         <label for="detective-model">Detective Model</label>
                         <input type="text" id="detective-model" name="detective_model" value="gemini:gemini-2.5-flash"
                             list="model-options">
+                    </div>
+                </div>
+
+                <!-- Inverse Mode Settings -->
+                <div id="inverse-mode-settings" class="hidden">
+                    <div class="form-group">
+                        <label for="inverse-detective-model">Detective Model (AI)</label>
+                        <input type="text" id="inverse-detective-model" name="inverse_detective_model"
+                            value="gemini:gemini-2.5-flash" list="model-options">
                     </div>
                 </div>
 
@@ -121,19 +131,21 @@
                     <span class="status-badge ready" id="status-badge">Ready</span>
                 </div>
                 <div class="header-actions">
-                    <button type="button" id="start-game-btn" class="btn btn-primary">Start Game</button>
+                    <button type="button" id="start-game-btn" class="btn btn-primary">Start
+                        Game</button>
                     <button id="hint-btn" class="btn btn-warning btn-sm hidden">💡 Pista</button>
-                    <button id="save-btn" class="btn btn-secondary btn-sm" disabled>Save Log</button>
+                    <button id="save-btn" class="btn btn-secondary btn-sm" disabled>Save
+                        Log</button>
                 </div>
             </div>
         </aside>
 
         <main class="chat-interface">
             <div id="chat-container" class="chat-messages">
-                <div class="empty-state">
+                <div id="empty-state" class="empty-state">
                     <div class="icon">🕵️‍♂️</div>
-                    <h3>Ready to solve a mystery?</h3>
-                    <p>Configure your AI agents on the left and start the session.</p>
+                    <h3>¿Listo para resolver un misterio?</h3>
+                    <p>Configura tus agentes de IA a la izquierda y comienza la sesión.</p>
                 </div>
             </div>
 
@@ -149,6 +161,18 @@
                     <button id="send-btn" class="btn-icon">➤</button>
                 </div>
                 <button id="solve-btn" class="btn btn-success">Resolver Misterio</button>
+            </div>
+
+            <!-- Inverse Mode Controls -->
+            <div id="inverse-controls" class="inverse-controls hidden">
+                <p class="inverse-instruction">El Detective ha preguntado. ¿Cuál es tu respuesta?</p>
+                <div class="inverse-buttons">
+                    <button class="btn-inverse" data-answer="Sí">Sí</button>
+                    <button class="btn-inverse" data-answer="No">No</button>
+                    <button class="btn-inverse" data-answer="Irrelevante">Irrelevante</button>
+                    <button class="btn-inverse" data-answer="No lo sé">No lo sé</button>
+                    <button class="btn-inverse btn-correct" data-answer="¡Correcto!">¡Correcto! (Ha resuelto)</button>
+                </div>
             </div>
 
         </main>

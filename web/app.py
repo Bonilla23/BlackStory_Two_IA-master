@@ -11,6 +11,7 @@ import asyncio
 from src.game.game_engine import GameEngine
 from src.game.fight_engine import FightEngine # Import FightEngine
 from src.game.council_engine import CouncilEngine # Import CouncilEngine
+from src.game.inverse_engine import InverseEngine # Import InverseEngine
 from src.services.hint_generator import HintGenerator # Import HintGenerator
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
@@ -266,6 +267,55 @@ def solve_mystery():
     return Response(generate(), mimetype='application/x-ndjson')
 
 
+
+
+@app.route('/start_inverse', methods=['POST'])
+def start_inverse():
+    data = request.json
+    difficulty = data.get('difficulty')
+    detective_model = data.get('detective_model')
+    session_id = data.get('session_id')
+
+    if not session_id:
+        return Response(json.dumps({"type": "error", "content": "Session ID required"}), mimetype='application/x-ndjson')
+
+    def generate():
+        try:
+            config_loader = Config(parse_cli=False)
+            config = config_loader.get_config()
+            inverse_engine = InverseEngine(config)
+            active_games[session_id] = inverse_engine
+            
+            for line in inverse_engine.start_game(difficulty, detective_model):
+                print(f"DEBUG: Yielding inverse line: {line}")
+                yield line + '\n'
+        except Exception as e:
+            print(f"ERROR: An exception occurred in start_inverse: {e}")
+            yield json.dumps({"type": "error", "content": f"An error occurred: {e}"})
+
+    return Response(generate(), mimetype='application/x-ndjson')
+
+@app.route('/inverse_answer', methods=['POST'])
+def inverse_answer():
+    data = request.json
+    session_id = data.get('session_id')
+    answer = data.get('answer')
+
+    if not session_id or not answer:
+        return Response(json.dumps({"type": "error", "content": "Session ID and answer required"}), mimetype='application/x-ndjson')
+
+    game_instance = active_games.get(session_id)
+    if not game_instance or not isinstance(game_instance, InverseEngine):
+        return Response(json.dumps({"type": "error", "content": "Game not found"}), mimetype='application/x-ndjson')
+
+    def generate():
+        try:
+            for line in game_instance.handle_answer(answer):
+                yield line + '\n'
+        except Exception as e:
+            yield json.dumps({"type": "error", "content": f"An error occurred: {e}"})
+
+    return Response(generate(), mimetype='application/x-ndjson')
 
 if __name__ == '__main__':
     app.run(debug=True)

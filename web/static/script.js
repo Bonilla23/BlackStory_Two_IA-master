@@ -9,6 +9,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const singleModeSettings = document.getElementById('single-mode-settings');
     const fightModeSettings = document.getElementById('fight-mode-settings');
     const councilModeSettings = document.getElementById('council-mode-settings');
+    const inverseModeSettings = document.getElementById('inverse-mode-settings');
+    const inverseControls = document.getElementById('inverse-controls');
 
     const narratorGroup = document.getElementById('narrator-group');
     const detectiveGroup = document.getElementById('detective-group');
@@ -57,6 +59,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     solveBtn.addEventListener('click', solveMystery);
 
+    // Inverse Mode Buttons
+    document.querySelectorAll('.btn-inverse').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const answer = e.target.dataset.answer;
+            handleInverseAnswer(answer);
+        });
+    });
+
     // Handle Mode Change
     function handleModeChange() {
         currentMode = gameModeSelect.value;
@@ -65,9 +75,11 @@ document.addEventListener('DOMContentLoaded', () => {
         singleModeSettings.classList.add('hidden');
         fightModeSettings.classList.add('hidden');
         councilModeSettings.classList.add('hidden');
+        inverseModeSettings.classList.add('hidden');
         detectiveGroup.classList.add('hidden'); // Default hidden, shown only in single
         hintBtn.classList.add('hidden');
         chatInputArea.classList.add('hidden');
+        inverseControls.classList.add('hidden');
 
         if (currentMode === 'single') {
             singleModeSettings.classList.remove('hidden');
@@ -94,6 +106,12 @@ document.addEventListener('DOMContentLoaded', () => {
             startGameBtn.textContent = "Start Council";
             startGameBtn.className = "btn btn-warning"; // Use a distinct color if available, or custom class
             startGameBtn.style.backgroundColor = "#f59e0b"; // Manual override for now
+        } else if (currentMode === 'inverse') {
+            inverseModeSettings.classList.remove('hidden');
+            sessionTitle.textContent = "Inverse Mode (You are Narrator)";
+            startGameBtn.textContent = "Start Inverse Game";
+            startGameBtn.className = "btn btn-info"; // Distinct color
+            startGameBtn.style.backgroundColor = "#8b5cf6"; // Violet
         }
     }
 
@@ -215,6 +233,8 @@ document.addEventListener('DOMContentLoaded', () => {
             startFightGame();
         } else if (currentMode === 'council') {
             startCouncilGame();
+        } else if (currentMode === 'inverse') {
+            startInverseGame();
         }
     }
 
@@ -339,6 +359,36 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
+    // Start Inverse Game
+    async function startInverseGame() {
+        chatContainer.innerHTML = '';
+        mysteryShown = false;
+        addMessage("Initializing Inverse Mode...", "system");
+        setLoading(true);
+        inverseControls.classList.add('hidden');
+
+        const gameFormData = new FormData(gameForm);
+        const inverseDetectiveModel = document.getElementById('inverse-detective-model').value;
+
+        const data = {
+            difficulty: gameFormData.get('difficulty'),
+            detective_model: inverseDetectiveModel,
+            session_id: sessionId
+        };
+
+        try {
+            const response = await fetch('/start_inverse', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(data)
+            });
+            await handleStreamResponse(response);
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+            setLoading(false);
+        }
+    }
+
     // Generic Stream Handler
     async function handleStreamResponse(response) {
         const reader = response.body.getReader();
@@ -394,6 +444,25 @@ document.addEventListener('DOMContentLoaded', () => {
             statusBadge.textContent = "Your Turn";
             chatInputArea.classList.remove('hidden');
             userInput.focus();
+        } else if (msg.type === 'inverse_init') {
+            addMessage(`Misterio: ${msg.mystery}`, 'mystery');
+            addMessage(`Solución (SOLO PARA TI): ${msg.solution}`, 'system');
+            mysteryShown = true;
+            setLoading(false);
+            isGameRunning = true;
+            statusBadge.textContent = "Your Turn (Narrator)";
+        } else if (msg.type === 'inverse_question') {
+            addMessage(msg.content, 'detective');
+            // Show controls for user to answer
+            inverseControls.classList.remove('hidden');
+            // Scroll to bottom to ensure controls are seen
+            setTimeout(scrollToBottom, 100);
+        } else if (msg.type === 'inverse_solution') {
+            // The content is already added as a message by the engine
+            inverseControls.classList.remove('hidden');
+            setTimeout(scrollToBottom, 100);
+        } else if (msg.type === 'status') {
+            // Just a status update
         } else {
             addMessage(msg.content, 'system');
         }
@@ -521,6 +590,26 @@ document.addEventListener('DOMContentLoaded', () => {
             sendBtn.disabled = false;
             typingIndicator.classList.add('hidden');
             userInput.focus();
+        }
+    }
+
+    // Handle Inverse Answer
+    async function handleInverseAnswer(answer) {
+        // Hide controls immediately to prevent double clicks
+        inverseControls.classList.add('hidden');
+        addMessage(answer, 'narrator', 'Tú');
+
+        try {
+            const response = await fetch('/inverse_answer', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ session_id: sessionId, answer: answer })
+            });
+            await handleStreamResponse(response);
+        } catch (error) {
+            addMessage(`Connection error: ${error.message}`, 'error');
+            // Show controls again if error?
+            inverseControls.classList.remove('hidden');
         }
     }
 
