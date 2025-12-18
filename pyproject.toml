@@ -3,7 +3,7 @@ name = "black-stories-ai"
 version = "0.1.0"
 description = "A Black Stories game where two AIs play against each other."
 authors = [{ name = "Your Name", email = "your.email@example.com" }]
-dependencies = ["python-dotenv", "flask", "json-repair"]
+dependencies = ["python-dotenv", "flask[async]", "json-repair"]
 requires-python = ">=3.10"
 
 [build-system]
